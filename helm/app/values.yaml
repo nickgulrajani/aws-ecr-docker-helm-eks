@@ -1,1 +1,37 @@
-'"$@"'
+replicaCount: 2
+
+image:
+  repository: local/app
+  tag: dev
+  pullPolicy: IfNotPresent
+
+service:
+  type: ClusterIP
+  port: 80
+
+resources:
+  requests:
+    cpu: 50m
+    memory: 64Mi
+  limits:
+    cpu: 250m
+    memory: 256Mi
+
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 10001
+
+containerSecurityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+
+livenessProbe:
+  path: /healthz
+  initialDelaySeconds: 10
+  periodSeconds: 30
+
+readinessProbe:
+  path: /healthz
+  initialDelaySeconds: 5
+  periodSeconds: 10
+
