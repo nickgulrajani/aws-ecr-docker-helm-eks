@@ -13,14 +13,21 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      # Optional: catch the earlier heredoc artifact if it ever sneaks back in
-      - name: Sanity — no stray "$@" lines
+      # Sanity: block stray scaffold artifacts that break YAML/TF/Helm
+      - name: Sanity — no stray scaffold artifacts
         run: |
           set -euo pipefail
-          if grep -R -n '^\s*"\$@"\s*$' .github terraform helm app tfvars || true; then
+          # 1) Literal "$@" lines
+          if grep -R -n -E '^[[:space:]]*"\$@"[[:space:]]*$' .github terraform helm app tfvars; then
             echo "::error::Found stray '\"$@\"' line. Clean files and retry."
             exit 1
           fi
+          # 2) Bare double-quote lines
+          if grep -R -n -E '^[[:space:]]*"[[:space:]]*$' .github terraform helm app tfvars; then
+            echo "::error::Found stray bare '\"' line. Clean files and retry."
+            exit 1
+          fi
+          echo "OK: No stray scaffold artifacts detected."
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -97,7 +104,7 @@ jobs:
           terraform -chdir=terraform show -json tfplan.binary > tfplan.json
           terraform -chdir=terraform show tfplan.binary | sed -n "1,120p"
 
-      # ✅ Robust tag gate — only enforces on resources that actually have tag fields
+      # ✅ Only enforce tags on resources that actually have tag fields
       - name: Gate – require tags on created resources that support tags
         run: |
           set -euo pipefail
