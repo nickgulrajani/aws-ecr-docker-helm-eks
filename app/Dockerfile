@@ -2,7 +2,8 @@
 FROM node:20-alpine AS build
 WORKDIR /app
 COPY package*.json ./
-RUN npm ci --omit=dev
+# No lockfile in repo → use npm install (not ci)
+RUN npm install --omit=dev --no-audit --no-fund
 COPY src ./src
 
 # --- Runtime ---
