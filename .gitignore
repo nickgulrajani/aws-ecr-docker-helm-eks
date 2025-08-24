@@ -1,0 +1,6 @@
+# Local artifacts
+app-image.tar
+.tfplan
+*.tfstate*
+.terraform/
+helm/rendered.yaml
