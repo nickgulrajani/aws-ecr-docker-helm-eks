@@ -1,0 +1,40 @@
+@startuml
+title Secure Deploy Flow (Dry-Run Gates + Cluster Enforcement)
+
+actor Developer as Dev
+participant "GitHub Actions\n(CI)" as CI
+participant "Conftest/OPA" as OPA
+participant "Terraform (plan)" as TF
+participant "EKS API Server" as API
+participant "Admission (RBAC + PSA)" as ADM
+database "AWS KMS" as KMS
+participant "GuardDuty" as GD
+
+Dev -> CI: Push PR (manifests + policies + TF)
+CI -> OPA: conftest test manifests
+OPA --> CI: pass / fail
+
+alt OPA failed
+  CI -> Dev: Block PR (policy violations)
+else OPA passed
+  CI -> TF: terraform plan (-backend=false)
+  TF --> CI: tfplan.json
+  CI -> CI: jq gates (KMS, private endpoint,\nGuardDuty enabled, required tags)
+
+  alt Any gate failed
+    CI -> Dev: Block PR (failed security gates)
+  else All gates passed
+    Dev -> API: kubectl apply (after merge)
+    API -> ADM: Admission checks (RBAC + PSA)
+    ADM --> API: Allowed / Rejected
+
+    opt Secrets written
+      API -> KMS: Encrypt secrets at rest
+    end
+
+    GD -> API: Monitor activity (findings)
+    API --> Dev: Deploy result
+  end
+end
+@enduml
+
